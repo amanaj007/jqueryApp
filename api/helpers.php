@@ -6,6 +6,69 @@ require_once __DIR__ . '/db.php';
 
 session_start();
 
+function authenticationKey(): string
+{
+    return (string) (getenv('DB_PASSWORD') ?: 'local-development-key');
+}
+
+function storeAuthenticatedUser(int $userId, string $name): void
+{
+    $payload = rtrim(strtr(base64_encode(json_encode(['id' => $userId, 'name' => $name], JSON_THROW_ON_ERROR)), '+/', '-_'), '=');
+    $signature = hash_hmac('sha256', $payload, authenticationKey());
+    setcookie('resume_auth', $payload . '.' . $signature, [
+        'expires' => time() + 86400,
+        'path' => '/',
+        'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    $_SESSION['user_id'] = $userId;
+    $_SESSION['name'] = $name;
+}
+
+function restoreAuthenticatedUser(): void
+{
+    if (isset($_SESSION['user_id']) || !isset($_COOKIE['resume_auth'])) {
+        return;
+    }
+
+    [$payload, $signature] = array_pad(explode('.', (string) $_COOKIE['resume_auth'], 2), 2, '');
+    if ($payload === '' || $signature === '' || !hash_equals(hash_hmac('sha256', $payload, authenticationKey()), $signature)) {
+        return;
+    }
+
+    $decoded = base64_decode(strtr($payload, '-_', '+/') . str_repeat('=', (4 - strlen($payload) % 4) % 4), true);
+    if ($decoded === false) {
+        return;
+    }
+
+    try {
+        $user = json_decode($decoded, true, 512, JSON_THROW_ON_ERROR);
+    } catch (JsonException $exception) {
+        return;
+    }
+
+    if (!is_array($user) || !isset($user['id'], $user['name']) || !is_int($user['id']) || !is_string($user['name'])) {
+        return;
+    }
+
+    $_SESSION['user_id'] = $user['id'];
+    $_SESSION['name'] = $user['name'];
+}
+
+function clearAuthenticatedUser(): void
+{
+    setcookie('resume_auth', '', [
+        'expires' => time() - 3600,
+        'path' => '/',
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    unset($_SESSION['user_id'], $_SESSION['name']);
+}
+
+restoreAuthenticatedUser();
+
 function esc(?string $value): string
 {
     return htmlentities($value ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
