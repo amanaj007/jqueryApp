@@ -173,7 +173,7 @@ function validatePositions(array $input): ?string
             return 'All fields are required';
         }
         if (!is_numeric($year)) {
-            return 'Position year must be numeric';
+            return 'Year must be numeric';
         }
     }
     return null;
