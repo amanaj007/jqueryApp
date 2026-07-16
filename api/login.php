@@ -13,10 +13,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $statement = getPdo()->prepare('SELECT user_id, name, password FROM users WHERE email = :email');
-    $statement->execute([':email' => $email]);
+    $statement = getPdo()->prepare('SELECT user_id, name FROM users WHERE email = :email AND password = :password LIMIT 1');
+    $statement->execute([
+        ':email' => $email,
+        ':password' => md5($password),
+    ]);
     $user = $statement->fetch();
-    if (!$user || md5($password) !== $user['password']) {
+    if (!$user) {
         setFlash('Incorrect password');
         header('Location: login.php');
         exit;
