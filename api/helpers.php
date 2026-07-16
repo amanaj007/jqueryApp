@@ -74,22 +74,71 @@ function esc(?string $value): string
     return htmlentities($value ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 }
 
-function setFlash(string $message): void
+function setFlash(string $message, string $type = 'error'): void
 {
-    $_SESSION['error'] = $message;
+    $payload = rtrim(strtr(base64_encode(json_encode(['message' => $message, 'type' => $type], JSON_THROW_ON_ERROR)), '+/', '-_'), '=');
+    $signature = hash_hmac('sha256', $payload, authenticationKey());
+    setcookie('resume_flash', $payload . '.' . $signature, [
+        'expires' => time() + 300,
+        'path' => '/',
+        'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+}
+
+function setSuccess(string $message): void
+{
+    setFlash($message, 'success');
+}
+
+function consumeFlash(): ?array
+{
+    if (!isset($_COOKIE['resume_flash'])) {
+        return null;
+    }
+
+    [$payload, $signature] = array_pad(explode('.', (string) $_COOKIE['resume_flash'], 2), 2, '');
+    if ($payload === '' || $signature === '' || !hash_equals(hash_hmac('sha256', $payload, authenticationKey()), $signature)) {
+        return null;
+    }
+
+    $decoded = base64_decode(strtr($payload, '-_', '+/') . str_repeat('=', (4 - strlen($payload) % 4) % 4), true);
+    if ($decoded === false) {
+        return null;
+    }
+
+    try {
+        $flash = json_decode($decoded, true, 512, JSON_THROW_ON_ERROR);
+    } catch (JsonException $exception) {
+        return null;
+    }
+
+    if (!is_array($flash) || !isset($flash['message'], $flash['type']) || !is_string($flash['message']) || !in_array($flash['type'], ['error', 'success'], true)) {
+        return null;
+    }
+
+    setcookie('resume_flash', '', [
+        'expires' => time() - 3600,
+        'path' => '/',
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    return $flash;
 }
 
 function displayFlash(): void
 {
-    if (isset($_SESSION['error'])) {
-        echo '<p class="alert alert-danger">' . esc($_SESSION['error']) . '</p>';
-        unset($_SESSION['error']);
+    $flash = $GLOBALS['resume_flash'] ?? null;
+    if (!is_array($flash)) {
+        return;
     }
-    if (isset($_SESSION['success'])) {
-        echo '<p class="alert alert-success">' . esc($_SESSION['success']) . '</p>';
-        unset($_SESSION['success']);
-    }
+
+    $class = $flash['type'] === 'success' ? 'alert-success' : 'alert-danger';
+    echo '<p class="alert ' . $class . '">' . esc($flash['message']) . '</p>';
 }
+
+$GLOBALS['resume_flash'] = consumeFlash();
 
 function requireLogin(): void
 {

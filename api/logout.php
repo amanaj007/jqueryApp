@@ -8,6 +8,6 @@ clearAuthenticatedUser();
 $_SESSION = [];
 session_destroy();
 session_start();
-$_SESSION['success'] = 'Logged out';
+setSuccess('Logged out');
 header('Location: index.php');
 exit;

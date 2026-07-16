@@ -21,7 +21,7 @@ if (!$profile) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $statement = $pdo->prepare('DELETE FROM Profile WHERE profile_id = :pid AND user_id = :uid');
     $statement->execute([':pid' => $profileId, ':uid' => $_SESSION['user_id']]);
-    $_SESSION['success'] = 'Profile deleted';
+    setSuccess('Profile deleted');
     header('Location: index.php');
     exit;
 }

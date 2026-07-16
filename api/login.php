@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     storeAuthenticatedUser((int) $user['user_id'], $user['name']);
-    $_SESSION['success'] = 'Logged in';
+    setSuccess('Logged in');
     header('Location: index.php');
     exit;
 }

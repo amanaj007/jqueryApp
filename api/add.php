@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
         savePositions($pdo, (int) $pdo->lastInsertId(), $_POST);
         $pdo->commit();
-        $_SESSION['success'] = 'Profile added';
+        setSuccess('Profile added');
         header('Location: index.php');
         exit;
     } catch (Throwable $exception) {

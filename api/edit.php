@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $statement->execute([':pid' => $profileId]);
         savePositions($pdo, $profileId, $_POST);
         $pdo->commit();
-        $_SESSION['success'] = 'Profile updated';
+        setSuccess('Profile updated');
         header('Location: index.php');
         exit;
     } catch (Throwable $exception) {
